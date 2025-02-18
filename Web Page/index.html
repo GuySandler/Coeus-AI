@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Coeus AI</title>
+</head>
+<body>
+	<h1>COEUS AI</h1>
+	<div style="width:50%;height: 500px;border: 1px solid black;overflow-y: scroll;">
+		<div id="chat" style="padding: 10px;">
+
+		</div>
+	</div>
+	<!-- <div style="position: absolute;bottom: 10px;left: 10px;"> -->
+	<div>
+		<input type="text" id="input" autocomplete="off" placeholder="Enter your text here" style="width: 400px;height: 45px;">
+		<button onclick="send()">Send</button>
+	</div>
+
+</body>
+<script>
+	const MyAPI = "http://0.0.0.0:3000";
+	let state = "setup";
+	let setupStep = 0;
+	const setupConfig = {
+		canvasUrl: null,
+		apiKey: null
+	};
+
+	async function get(url) {
+		try {
+			const response = await fetch(url);
+			if (!response.ok) {
+				throw new Error(`Response status: ${response.status}`);
+			}
+			const data = await response.json();
+			return data;
+		} catch (error) {
+			console.error(error.message);
+			throw error;
+		}
+	}
+
+	async function post(url, data) {
+		try {
+			const response = await fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(data),
+			});
+			if (!response.ok) {
+				throw new Error(`Response status: ${response.status}`);
+			}
+			const json = await response.json();
+			return json;
+		} catch (error) {
+			console.error(error.message);
+		}
+	}
+
+	document.getElementById("input").addEventListener("keypress", async (e) => {
+		if (e.key === "Enter") {
+			e.preventDefault();
+			await send();
+			document.getElementById("input").value = "";
+		}
+	});
+
+	const chat = document.getElementById("chat");
+	const chatHistory = [];
+
+	function addToChat(text, fromwho, side, replaceable = false) {
+		const div = document.createElement("div");
+		if (replaceable) {
+			div.id = "toreplace";
+		}
+		let color = fromwho.toLowerCase() === "you" ? "#4CAF50" : "#8b8987";
+		div.style.clear = "both";
+		div.innerHTML = `<p style="float:${side};background-color:${color};padding: 10px;border-radius: 10px;display: inline-block;margin-bottom: 10px;max-width:60%;overflow-y:auto">${fromwho}: ${text}</p>`;
+		chat.appendChild(div);
+
+		if (!replaceable) {
+			chatHistory.push({ role: fromwho.toLowerCase(), content: text });
+		}
+	}
+
+	let CanvasProfile;
+	async function handleSetup(message) {
+		switch(setupStep) {
+			case 0:
+				setupConfig.canvasUrl = message;
+				addToChat(message, "You", "right");
+				await wait(750);
+				addToChat("What is your Canvas API key?", "Coeus", "left");
+				setupStep++;
+				break;
+			case 1:
+				setupConfig.apiKey = message;
+				addToChat(message, "You", "right");
+				await wait(750);
+				addToChat("building your profile...", "Coeus", "left");
+				CanvasProfile = await post(MyAPI + "/buildcanvas", {"key": setupConfig.apiKey});
+				addToChat("Done!", "Coeus", "left");
+				console.log(CanvasProfile);
+			case 2:
+				const items = ["No period 0", "No period 1", "No period 7"];
+				for (const course of CanvasProfile.courses) {
+					items.push(course.name);
+				}
+				const periods = await createDragDropPopup(items);
+				await wait(750);
+
+				addToChat("Setup complete! You can now ask me questions.", "Coeus", "left");
+				state = "chat";
+				// Store credentials in cookies
+				setCookie("canvasUrl", setupConfig.canvasUrl, 7);
+				setCookie("apiKey", setupConfig.apiKey, 7);
+				// setCookie("periods", JSON.stringify(periods), 7);
+				console.log(periods);
+				break;
+		}
+
+	}
+
+	async function AskGemini(prompt) {
+		const url = `${MyAPI}/askgemini`;
+		addToChat(prompt, "You", "right");
+		addToChat("Thinking...", "Gemini", "left", true);
+
+		const data = {
+			prompt: prompt,
+			history: chatHistory
+		};
+
+		const response = await post(url, data);
+		const toreplace = document.getElementById("toreplace");
+		if (toreplace) {
+			toreplace.innerHTML = `<p style="float:left;background-color:#4CAF50;padding: 10px;border-radius: 10px;display: inline-block;">Gemini: ${response.answer}</p>`;
+			toreplace.removeAttribute('id');
+			chatHistory.push({ role: 'Coeus', content: response.answer });
+		}
+	}
+
+	async function send() {
+		const prompt = document.getElementById("input").value;
+		if (prompt === "") return;
+
+		if (state === "setup") {
+			await handleSetup(prompt);
+		} else if (state === "chat") {
+			await AskGemini(prompt);
+		}
+
+		document.getElementById("input").value = "";
+	}
+
+	async function setup() {
+		// Check for existing credentials
+		const savedUrl = getCookie("canvasUrl");
+		const savedKey = getCookie("apiKey");
+
+		if (savedUrl && savedKey) {
+			setupConfig.canvasUrl = savedUrl;
+			setupConfig.apiKey = savedKey;
+			state = "chat";
+			addToChat("Welcome back! How can I help you today?", "Coeus", "left");
+			return;
+		}
+
+		addToChat("Hello 👋", "Coeus", "left");
+		await wait(750);
+		addToChat("Before I can start helping you I need some info", "Coeus", "left");
+		await wait(750);
+		addToChat("What is your canvas URL? (acalanes.instructure.com)", "Coeus", "left");
+	}
+
+	function wait(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms));
+	}
+
+	function setCookie(name, value, days) {
+		var expires = "";
+		if (days) {
+			var date = new Date();
+			date.setTime(date.getTime() + (days*24*60*60*1000));
+			expires = "; expires=" + date.toUTCString();
+		}
+		document.cookie = name + "=" + (value || "") + expires + "; path=/";
+	}
+
+	function getCookie(name) {
+		var nameEQ = name + "=";
+		var ca = document.cookie.split(';');
+		for(var i=0;i < ca.length;i++) {
+			var c = ca[i];
+			while (c.charAt(0)==' ') c = c.substring(1,c.length);
+			if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length,c.length);
+		}
+		return null;
+	}
+
+	function eraseCookie(name) {
+		document.cookie = name +'=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+	}
+
+	function createDragDropPopup(items) {
+		const popup = document.createElement("div");
+		popup.style.cssText = `
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background: white;
+			padding: 20px;
+			border-radius: 10px;
+			box-shadow: 0 0 10px rgba(0,0,0,0.5);
+			z-index: 1000;
+			width: 800px;
+			height: 600px;
+			display: flex;
+			justify-content: space-between;
+		`;
+	
+		const dropZones = document.createElement("div");
+		dropZones.style.cssText = `
+			width: 45%;
+			padding: 10px;
+			border: 2px dashed #ccc;
+			height: 100%;
+		`;
+	
+		const dragItems = document.createElement("div"); 
+		dragItems.style.cssText = `
+			width: 45%;
+			padding: 10px;
+			border: 2px dashed #ccc;
+			height: 100%;
+			overflow-y: auto;
+		`;
+	
+		dragItems.addEventListener("dragover", (e) => e.preventDefault());
+		dragItems.addEventListener("drop", (e) => {
+			e.preventDefault();
+			const draggedId = e.dataTransfer.getData("text");
+			const draggedElement = document.getElementById(draggedId);
+			dragItems.appendChild(draggedElement);
+		});
+	
+		// Create 8 fixed drop zones
+		for(let i = 0; i < 8; i++) {
+			const dropZone = document.createElement("div");
+			dropZone.style.cssText = `
+				height: 60px;
+				margin: 10px 0;
+				border: 2px solid #4CAF50;
+				border-radius: 5px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				width: 100%;
+			`;
+			dropZone.setAttribute("data-index", i);
+			dropZone.textContent = `Period ${i}`;
+			dropZone.addEventListener("dragover", (e) => {
+				e.preventDefault();
+				dropZone.style.background = "#e8f5e9";
+			});
+			dropZone.addEventListener("dragleave", () => {
+				dropZone.style.background = "white";
+			});
+			dropZone.addEventListener("drop", (e) => {
+				e.preventDefault();
+				const draggedId = e.dataTransfer.getData("text");
+				const draggedElement = document.getElementById(draggedId);
+				if (dropZone.children.length === 0) {
+					dropZone.appendChild(draggedElement);
+					dropZone.style.background = "white";
+				}
+			});
+			dropZones.appendChild(dropZone);
+		}
+	
+		// Create draggable items from input array
+		items.forEach((item, index) => {
+			const dragItem = document.createElement("div");
+			dragItem.style.cssText = `
+				height: 60px;
+				margin: 10px 0;
+				background: #4CAF50;
+				color: white;
+				border-radius: 5px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				cursor: move;
+				width: 100%;
+			`;
+			dragItem.setAttribute("draggable", true);
+			dragItem.setAttribute("id", `item-${index}`);
+			dragItem.textContent = item;
+			dragItem.addEventListener("dragstart", (e) => {
+				e.dataTransfer.setData("text", e.target.id);
+			});
+			dragItems.appendChild(dragItem);
+		});
+	
+		popup.appendChild(dropZones);
+		popup.appendChild(dragItems);
+	
+		const button = document.createElement("button");
+		button.textContent = "Submit";
+		button.style.cssText = `
+			position: absolute;
+			bottom: 20px;
+			left: 50%;
+			transform: translateX(-50%);
+			padding: 10px 20px;
+			background: #4CAF50;
+			color: white;
+			border: none;
+			border-radius: 5px;
+			cursor: pointer;
+		`;
+	
+		popup.appendChild(button);
+		document.body.appendChild(popup);
+
+		return new Promise((resolve) => {
+			button.onclick = () => {
+				const results = {};
+				Array.from(dropZones.children).forEach((zone, index) => {
+					results[`period${index}`] = zone.children.length > 0 ? 
+						zone.children[0].textContent :
+						null;
+				});
+				document.body.removeChild(popup);
+				resolve(results);
+			};
+		});
+	}
+
+	// Initialize
+	setup();
+</script>
+</html>
