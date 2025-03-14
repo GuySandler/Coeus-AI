@@ -103,6 +103,7 @@
 				await wait(750);
 				addToChat("building your profile...", "Coeus", "left");
 				CanvasProfile = await post(MyAPI + "/buildcanvas", {"key": setupConfig.apiKey});
+				await post(MyAPI + "/makeuser", {"name": CanvasProfile.name, "key": setupConfig.key, "url": setupConfig.canvasUrl});
 				addToChat("Done!", "Coeus", "left");
 				console.log(CanvasProfile);
 			case 2:
@@ -113,13 +114,20 @@
 				const periods = await createDragDropPopup(items);
 				await wait(750);
 
+			case 3:
+				addToChat("Great! I have all the information I need.", "Coeus", "left");
+				// Store credentials in cookies
+				setCookie("canvasUrl", setupConfig.canvasUrl);
+				setCookie("apiKey", setupConfig.apiKey);
+				setCookie("periods", JSON.stringify(periods));
+				setCookie("id", CanvasProfile.id);
+				setCookie("CanvasProfile", JSON.stringify(CanvasProfile));
+				console.log(periods);
+				setLastCheckupTime();
+
 				addToChat("Setup complete! You can now ask me questions.", "Coeus", "left");
 				state = "chat";
-				// Store credentials in cookies
-				setCookie("canvasUrl", setupConfig.canvasUrl, 7);
-				setCookie("apiKey", setupConfig.apiKey, 7);
-				// setCookie("periods", JSON.stringify(periods), 7);
-				console.log(periods);
+
 				break;
 		}
 
@@ -128,7 +136,7 @@
 	async function AskGemini(prompt) {
 		const url = `${MyAPI}/askgemini`;
 		addToChat(prompt, "You", "right");
-		addToChat("Thinking...", "Gemini", "left", true);
+		addToChat("Thinking...", "Coeus", "left", true);
 
 		const data = {
 			prompt: prompt,
@@ -138,7 +146,7 @@
 		const response = await post(url, data);
 		const toreplace = document.getElementById("toreplace");
 		if (toreplace) {
-			toreplace.innerHTML = `<p style="float:left;background-color:#4CAF50;padding: 10px;border-radius: 10px;display: inline-block;">Gemini: ${response.answer}</p>`;
+			toreplace.innerHTML = `<p style="float:left;background-color:#8b8987;padding: 10px;border-radius: 10px;display: inline-block;">Coeus: ${response.answer}</p>`;
 			toreplace.removeAttribute('id');
 			chatHistory.push({ role: 'Coeus', content: response.answer });
 		}
@@ -150,6 +158,8 @@
 
 		if (state === "setup") {
 			await handleSetup(prompt);
+		} else if (state === "checkup") {
+			await handleCheckup(prompt);
 		} else if (state === "chat") {
 			await AskGemini(prompt);
 		}
@@ -158,18 +168,28 @@
 	}
 
 	async function setup() {
-		// Check for existing credentials
 		const savedUrl = getCookie("canvasUrl");
 		const savedKey = getCookie("apiKey");
 
+		// skip setup
 		if (savedUrl && savedKey) {
 			setupConfig.canvasUrl = savedUrl;
 			setupConfig.apiKey = savedKey;
-			state = "chat";
-			addToChat("Welcome back! How can I help you today?", "Coeus", "left");
+
+			if (needsCheckup()) {
+				state = "checkup";
+				addToChat("Hi! It's been 24 hours since our last check-in. Let's review your progress!", "Coeus", "left");
+				await wait(750);
+				addToChat("Have you completed all your assignments from yesterday?", "Coeus", "left");
+				setLastCheckupTime();
+			} else {
+				state = "chat";
+				addToChat("Welcome back! How can I help you today?", "Coeus", "left");
+			}
 			return;
 		}
 
+		// setup start text
 		addToChat("Hello 👋", "Coeus", "left");
 		await wait(750);
 		addToChat("Before I can start helping you I need some info", "Coeus", "left");
@@ -342,7 +362,49 @@
 		});
 	}
 
-	// Initialize
+	function getLastCheckupTime() {
+		return getCookie("lastCheckupTime");
+	}
+
+	function setLastCheckupTime() {
+		setCookie("lastCheckupTime", new Date().getTime(), 30); // Store for 30 days
+	}
+
+	function needsCheckup() {
+		const lastCheckup = getLastCheckupTime();
+		if (!lastCheckup) return true;
+
+		const now = new Date().getTime();
+		const timeSinceLastCheckup = now - parseInt(lastCheckup);
+		const hoursSinceLastCheckup = timeSinceLastCheckup / (1000 * 60 * 60);
+		
+		return hoursSinceLastCheckup >= 24;
+	}
+
+	async function handleCheckup(response) {
+		// future, add quick buttons
+		addToChat("It's time for a checkup!, do you want to continue?", "Coeus", "right");
+		addToChat(response, "You", "right");
+		await wait(750);
+
+		if (response.toLowerCase().includes("no")) {
+			addToChat("Ok! See you tommorrow!", "Coeus", "left");
+			// Here you could add code to fetch and display pending assignments
+			state = "chat";
+		} else {
+			addToChat("Checkup stuff here", "Coeus", "left");
+			// Here you could add code to fetch upcoming assignments
+			state = "chat";
+		}
+	}
+
+
+	// todo
+	// no period box with inf supply
+	// what grade you wnat to get
+	// extracarriculers
+	// database
+
 	setup();
 </script>
 </html>
