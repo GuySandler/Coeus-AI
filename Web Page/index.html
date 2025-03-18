@@ -4,10 +4,17 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Coeus AI</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap" rel="stylesheet">
 </head>
 <body>
 	<h1>COEUS AI</h1>
-	<div style="width:50%;height: 500px;border: 1px solid black;overflow-y: scroll;">
+	<!-- potencial decrase animation of gradiant or blue waves -->
+	<div style="width:50%;height: 500px;border: 1px solid black;overflow-y: scroll;background:linear-gradient(45deg, rgba(97,97,97,1) 50%, rgba(37,118,194,1) 100%);
+">
+		<h1 style="color:white;text-align:center;margin:0;padding:0;">Coeus</h1>
+		<h6 style="color:white;text-align:center;opacity:.5;margin:0;padding:0;">Coeus can make mistakes. Check important info.</h6>
 		<div id="chat" style="padding: 10px;">
 
 		</div>
@@ -72,19 +79,26 @@
 	const chat = document.getElementById("chat");
 	const chatHistory = [];
 
+	// move person talking to top
 	function addToChat(text, fromwho, side, replaceable = false) {
 		const div = document.createElement("div");
 		if (replaceable) {
 			div.id = "toreplace";
 		}
-		let color = fromwho.toLowerCase() === "you" ? "#4CAF50" : "#8b8987";
+		let color = fromwho.toLowerCase() === "you" ? "#3B3B3B" : "linear-gradient(45deg, rgba(141,104,191,1) 0%, rgba(76,157,232,1) 100%)";
 		div.style.clear = "both";
-		div.innerHTML = `<p style="float:${side};background-color:${color};padding: 10px;border-radius: 10px;display: inline-block;margin-bottom: 10px;max-width:60%;overflow-y:auto">${fromwho}: ${text}</p>`;
+		div.innerHTML = `<div>
+			<p style="margin:0;color:white;float:${side};position:relative;bottom:-15px;${side}:5px;">${fromwho}</p><br>
+			<p style="float:${side};background:${color};padding: 10px;border-radius: 10px;display: inline-block;color:white;margin-bottom: 10px;max-width:60%;overflow-y:auto">
+				${text}
+			</p>
+		</div>`;
 		chat.appendChild(div);
 
 		if (!replaceable) {
 			chatHistory.push({ role: fromwho.toLowerCase(), content: text });
 		}
+		chat.scrollTop = chat.scrollHeight;
 	}
 
 	let CanvasProfile;
@@ -94,7 +108,7 @@
 				setupConfig.canvasUrl = message;
 				addToChat(message, "You", "right");
 				await wait(750);
-				addToChat("What is your Canvas API key?", "Coeus", "left");
+				addToChat(`What is your Canvas API key? (get it <a target="_blank" href="https://${setupConfig.canvasUrl}/profile/settings">here</a>)`, "Coeus", "left");
 				setupStep++;
 				break;
 			case 1:
@@ -103,7 +117,7 @@
 				await wait(750);
 				addToChat("building your profile...", "Coeus", "left");
 				CanvasProfile = await post(MyAPI + "/buildcanvas", {"key": setupConfig.apiKey});
-				await post(MyAPI + "/makeuser", {"name": CanvasProfile.name, "key": setupConfig.key, "url": setupConfig.canvasUrl});
+				// await post(MyAPI + "/makeuser", {"name": CanvasProfile.name, "key": setupConfig.key, "url": setupConfig.canvasUrl});
 				addToChat("Done!", "Coeus", "left");
 				console.log(CanvasProfile);
 			case 2:
@@ -275,7 +289,7 @@
 			dropZone.style.cssText = `
 				height: 60px;
 				margin: 10px 0;
-				border: 2px solid #4CAF50;
+				border: 2px solid #6399e2;
 				border-radius: 5px;
 				display: flex;
 				align-items: center;
@@ -286,7 +300,7 @@
 			dropZone.textContent = `Period ${i}`;
 			dropZone.addEventListener("dragover", (e) => {
 				e.preventDefault();
-				dropZone.style.background = "#e8f5e9";
+				dropZone.style.background = "#6399e2";
 			});
 			dropZone.addEventListener("dragleave", () => {
 				dropZone.style.background = "white";
@@ -309,7 +323,7 @@
 			dragItem.style.cssText = `
 				height: 60px;
 				margin: 10px 0;
-				background: #4CAF50;
+				background: #6399e2;
 				color: white;
 				border-radius: 5px;
 				display: flex;
@@ -338,7 +352,7 @@
 			left: 50%;
 			transform: translateX(-50%);
 			padding: 10px 20px;
-			background: #4CAF50;
+			background: #6399e2;
 			color: white;
 			border: none;
 			border-radius: 5px;
@@ -401,10 +415,15 @@
 
 	// todo
 	// no period box with inf supply
-	// what grade you wnat to get
-	// extracarriculers
-	// database
+	// what grade you wnat to get (but don't do anything with it) (generate an encouraging message)
+	// extracarriculers/requirments to get done and when
+	// how much time to check in
 
 	setup();
 </script>
+<style>
+	body {
+		font-family: "Open Sans", sans-serif;
+	}
+</style>
 </html>
