@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Coeus Overlay",
+  "version": "1.0",
+  "description": "An extension that overlays the Coeus AI onto canvas",
+  "permissions": ["scripting", "activeTab"],
+  "host_permissions": [
+    "https://*.instructure.com/",
+    "http://localhost:3000/"
+  ],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.instructure.com/"],
+      "js": ["./src/content.js"]
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["index.html", "index_script.js"],
+      "matches": ["https://*.instructure.com/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
+}

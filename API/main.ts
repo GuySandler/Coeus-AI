@@ -70,14 +70,14 @@ async function get(url, token = null, params = {}) {
     }
 }
 
-const globalContext = "You are a helpful AI assistant called Coeus";
+const globalContext = "You are a helpful AI assistant called Coeus. ";
 app.post("/askgemini", async function (req, res) {
 	const body = req.body;
 	if (!body.prompt) {
 		res.status(400).send("Prompt is required.");
 		return;
 	}
-
+	console.log(body.personalContext);
 	const history = body.history || [];
 	const prompt = body.prompt;
 
@@ -86,15 +86,11 @@ app.post("/askgemini", async function (req, res) {
 		history: [
 			{
 				role: "user",
-				parts: [{ text: globalContext }],
+				parts: [{ text: globalContext+body.personalContext }],
 			},
 			{
 				role: "model",
-				parts: [
-					{
-						text: "How can I help you?",
-					},
-				],
+				parts: [{ text: "Understood." }], // Acknowledge context
 			},
 			...history.map((msg) => ({
 				role: msg.role === "you" ? "user" : "model",
