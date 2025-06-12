@@ -278,6 +278,14 @@ chrome.runtime.onMessage.addListener(
         if (request.message === "injectOverlay") { // This message can now be re-purposed or removed if not needed
             toggleCoeusChat(); // Or injectCoeusButton() if you want to re-trigger button injection
             sendResponse({message: "Coeus chat toggled or button injected!"});
+        } else if (request.action === "getCanvasUrl") {
+            // Extract Canvas URL from current page
+            const hostname = window.location.hostname;
+            if (hostname.includes('instructure.com')) {
+                sendResponse({ canvasUrl: hostname });
+            } else {
+                sendResponse({ canvasUrl: null });
+            }
         }
     }
 );

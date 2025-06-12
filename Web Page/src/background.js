@@ -60,5 +60,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 			.then(response => sendResponse(response))
 			.catch(error => sendResponse({ error: error.message }));
 		return true; // Indicates that the response will be sent asynchronously
+	} else if (request.action === "getCanvasUrl") {
+		// Get the Canvas URL from the active tab
+		chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+			if (tabs[0] && tabs[0].url) {
+				const url = new URL(tabs[0].url);
+				if (url.hostname.includes('instructure.com')) {
+					sendResponse({ canvasUrl: url.hostname });
+				} else {
+					sendResponse({ canvasUrl: null });
+				}
+			} else {
+				sendResponse({ canvasUrl: null });
+			}
+		});
+		return true; // Indicates that the response will be sent asynchronously
 	}
 });

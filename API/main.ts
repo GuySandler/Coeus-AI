@@ -37,7 +37,7 @@ app.use(express.json());
 const GeminiKey = Deno.env.get("GeminiKey");
 if (!GeminiKey) {throw new Error("Gemini API Key not found in environment variables");}
 const genAI = new GoogleGenerativeAI(GeminiKey);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-8b" });
+const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
 
 async function get(url, token = null, params = {}) {
     try {
@@ -70,7 +70,7 @@ async function get(url, token = null, params = {}) {
     }
 }
 
-const globalContext = "You are a helpful AI assistant called Coeus. ";
+const globalContext = "You are a helpful AI assistant called Coeus. You help students with their academic schedules and coursework. When referring to class periods, understand that 'Period 1', '1st period', 'first period', etc. all refer to the same time slot. ";
 app.post("/askgemini", async function (req, res) {
 	const body = req.body;
 	if (!body.prompt) {
@@ -118,12 +118,14 @@ app.post("/buildcanvas", async function (req, res) {
         return;
     }
 
-    const userProfile = await get(`https://acalanes.instructure.com/api/v1/users/self/profile`, body.key);
+    const canvasBaseUrl = `https://${body.url}`;
+    
+    const userProfile = await get(`${canvasBaseUrl}/api/v1/users/self/profile`, body.key);
     const userName = userProfile.name;
 	const userId = userProfile.id;
 	// console.log("User name:", userName);
 
-    const RawBody = await get(`https://acalanes.instructure.com/api/v1/courses`, body.key, { per_page: 10 });
+    const RawBody = await get(`${canvasBaseUrl}/api/v1/courses`, body.key, { per_page: 10 });
     const courses = [];
 
     for (const course of RawBody) {
@@ -142,7 +144,7 @@ app.post("/buildcanvas", async function (req, res) {
 	const grades = [];
 	// let grades;
 
-	const RawEnrollments = await get(`https://acalanes.instructure.com/api/v1/users/self/enrollments`, body.key, {per_page: 100});
+	const RawEnrollments = await get(`${canvasBaseUrl}/api/v1/users/self/enrollments`, body.key, {per_page: 100});
 	for (const enrollment of RawEnrollments) {
 		if (!enrollment.grades.current_score) {
 			continue;
